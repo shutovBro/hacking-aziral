@@ -17,8 +17,31 @@ const MODULES: Module[] = [
   { name: "Authentik", desc: "SSO и пользователи", sub: "auth", group: "Платформа" },
 ];
 
+// Известные префиксы наших модулей — чтобы корректно вычислить «корневой» домен,
+// когда страница открыта НЕ с главного хоста (вдруг попали на flow.* или term.*).
+const KNOWN_PREFIXES = new Set([
+  "spiderfoot", "term", "superset", "flows", "cron", "proxy", "auth", "traefik",
+]);
+
+/**
+ * Возвращает базовый домен платформы.
+ * - Если хост = `<prefix>.<root>` и prefix известен — отрезаем prefix.
+ * - Иначе хост сам и есть корень (например `cybersecurity.aziral.com`).
+ *
+ * Это безопасно работает и на 2-уровневых (`aziral.localhost`),
+ * и на 3+-уровневых (`cybersecurity.aziral.com`) доменах.
+ */
+function rootDomain(): string {
+  const host = window.location.hostname;
+  const parts = host.split(".");
+  if (parts.length > 1 && KNOWN_PREFIXES.has(parts[0])) {
+    return parts.slice(1).join(".");
+  }
+  return host;
+}
+
 export function Modules() {
-  const root = window.location.hostname.split(".").slice(-2).join(".");
+  const root = rootDomain();
   return (
     <section aria-labelledby="m-h">
       <h1 id="m-h" className="page-title">Модули</h1>
