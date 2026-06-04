@@ -2,6 +2,10 @@
 # Инициализация Superset: миграции, админ, init, регистрация БД находок, запуск.
 set -e
 
+# Superset 4.1 не включает драйвер Postgres — ставим (идемпотентно).
+echo "[superset] устанавливаю psycopg2-binary (драйвер Postgres)"
+pip install --quiet --no-cache-dir 'psycopg2-binary<3' || true
+
 echo "[superset] db upgrade"
 superset db upgrade
 

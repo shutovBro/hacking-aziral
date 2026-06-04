@@ -4,78 +4,69 @@
 # Динамические роуты Traefik (file-provider).
 # Без зависимости от Docker API — всё описано декларативно.
 # Имена хостов берутся через подстановку Traefik (`{{env "ROOT_DOMAIN"}}` не работает в file-provider),
-# поэтому здесь жёстко зашит aziral.localhost. Если меняешь ROOT_DOMAIN — поправь и тут.
+# поэтому здесь жёстко зашит cybersecurity.aziral.com. Если меняешь ROOT_DOMAIN — поправь и тут.
 
 http:
   routers:
     # ── Aziral Core (frontend SPA + /api на backend) ──
     core-web:
-      rule: "Host(`aziral.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: core-frontend
-      tls: {}
       middlewares: [authentik]
 
     core-api:
-      rule: "Host(`aziral.aziral.localhost`) && PathPrefix(`/api`)"
-      entryPoints: [websecure]
+      rule: "Host(`cybersecurity.aziral.com`) && PathPrefix(`/api`)"
+      entryPoints: [web]
       service: core-backend
-      tls: {}
       middlewares: [authentik, rate-limit]
 
     # ── Authentik (SSO UI и forward-auth endpoint) ──
     authentik:
-      rule: "Host(`auth.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`auth.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: authentik
-      tls: {}
       # Сам Authentik НЕ защищаем forward-auth — иначе бесконечный редирект.
 
     # ── SpiderFoot ──
     spiderfoot:
-      rule: "Host(`spiderfoot.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`spiderfoot.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: spiderfoot
-      tls: {}
       middlewares: [authentik]
 
     # ── Superset ──
     superset:
-      rule: "Host(`superset.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`superset.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: superset
-      tls: {}
       middlewares: [authentik]
 
     # ── Activepieces ──
     flows:
-      rule: "Host(`flows.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`flows.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: activepieces
-      tls: {}
       middlewares: [authentik]
 
     # ── Cronicle ──
     cron:
-      rule: "Host(`cron.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`cron.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: cronicle
-      tls: {}
       middlewares: [authentik]
 
     # ── Web-terminal (ttyd) ──
     webterm:
-      rule: "Host(`term.aziral.localhost`)"
-      entryPoints: [websecure]
+      rule: "Host(`term.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: webterm
-      tls: {}
       middlewares: [authentik]
 
     # ── Traefik dashboard (защищён SSO) ──
     dashboard:
-      rule: "Host(`traefik.aziral.localhost`)"
-      entryPoints: [websecure]
-      tls: {}
+      rule: "Host(`traefik.cybersecurity.aziral.com`)"
+      entryPoints: [web]
       service: api@internal
       middlewares: [authentik]
 

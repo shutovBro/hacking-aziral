@@ -7,10 +7,14 @@ ARG TARGETARCH=amd64
 ARG TTYD_VERSION=1.7.7
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git curl ca-certificates bash sudo \
-      gcc libssl-dev libffi-dev \
-      clifm \
+      git curl ca-certificates bash sudo make \
+      gcc libssl-dev libffi-dev libcap-dev libacl1-dev libmagic-dev libreadline-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# clifm — современный TUI-файловый менеджер (нет в Debian репо, собираем из исходников).
+RUN git clone --depth 1 https://github.com/leo-arch/clifm.git /tmp/clifm \
+    && make -C /tmp/clifm install \
+    && rm -rf /tmp/clifm
 
 # ttyd — статический бинарь под архитектуру (amd64/arm64).
 RUN set -eux; \
@@ -34,10 +38,10 @@ RUN git clone --depth 1 https://github.com/Z4nzu/hackingtool.git \
     && printf '#!/bin/bash\ncd /opt/hackingtool && exec python hackingtool.py "$@"\n' > /usr/local/bin/hackingtool \
     && chmod +x /usr/local/bin/hackingtool
 
-# Непривилегированный пользователь для shell-сессий.
-RUN useradd -m -s /bin/bash operator
-WORKDIR /home/operator
-USER operator
+# Непривилегированный пользователь для shell-сессий (idempotent — может уже существовать).
+RUN id aziral >/dev/null 2>&1 || useradd -m -s /bin/bash aziral
+WORKDIR /home/aziral
+USER aziral
 
 EXPOSE 7681
 # ttyd запускает интерактивный bash. -W даёт запись (ввод команд).

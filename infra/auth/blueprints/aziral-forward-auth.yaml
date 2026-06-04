@@ -12,7 +12,7 @@ metadata:
     blueprints.goauthentik.io/instantiate: "true"
 
 context:
-  root_domain: aziral.localhost
+  root_domain: cybersecurity.aziral.com
 
 entries:
   - model: authentik_providers_proxy.proxyprovider

@@ -1,0 +1,19 @@
+# Production-оверлей: Traefik не публикует портов наружу, использует traefik-prod.yml
+# (без HTTP→HTTPS redirect, т.к. TLS терминирует внешний NPM).
+
+services:
+  traefik:
+    ports: !reset []
+    networks:
+      - edge
+    volumes:
+      - ./infra/traefik/traefik-prod.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_acme:/acme
+
+  core-backend:
+    ports: !reset []
+  core-frontend:
+    ports: !reset []
+  authentik-server:
+    ports: !reset []

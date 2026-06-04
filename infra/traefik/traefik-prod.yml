@@ -1,0 +1,26 @@
+# Production: TLS терминируется на NPM, поэтому Traefik не делает HTTP→HTTPS redirect.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+log:
+  level: INFO
+api:
+  dashboard: true
+  insecure: false
+
+entryPoints:
+  web:
+    address: ':80'
+    http:
+      middlewares:
+        - security-headers@file
+  websecure:
+    address: ':443'
+    http:
+      middlewares:
+        - security-headers@file
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true

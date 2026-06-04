@@ -7,7 +7,7 @@ metadata:
     blueprints.goauthentik.io/instantiate: "true"
 
 context:
-  root_domain: aziral.localhost
+  root_domain: cybersecurity.aziral.com
 
 entries:
   # Сначала снимаем флаг default с встроенного brand'a, потом включаем у нашего.
