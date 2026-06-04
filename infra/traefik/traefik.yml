@@ -1,5 +1,5 @@
-# Статическая конфигурация Traefik.
-# Динамика (middlewares, маршруты по labels) — в docker-compose labels и dynamic/.
+# Статическая конфигурация Traefik. Все роуты — через file-провайдер
+# (см. dynamic/services.yml), без зависимости от Docker API discovery.
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
@@ -9,6 +9,7 @@ log:
 
 api:
   dashboard: true
+  insecure: false
 
 entryPoints:
   web:
@@ -25,17 +26,16 @@ entryPoints:
         - security-headers@file
 
 providers:
-  docker:
-    exposedByDefault: false           # сервис попадёт в роутинг только с label traefik.enable=true
-    network: aziral_edge
   file:
     directory: /etc/traefik/dynamic
     watch: true
 
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: "${ACME_EMAIL}"
-      storage: /acme/acme.json
-      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"  # переключается скриптом на prod
-      tlsChallenge: {}
+# ACME-резолвер закомментирован для локального запуска (.localhost не валидируется LE).
+# На проде раскомментируй и добавь `tls: { certResolver: letsencrypt }` в роуты.
+#certificatesResolvers:
+#  letsencrypt:
+#    acme:
+#      email: "${ACME_EMAIL}"
+#      storage: /acme/acme.json
+#      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+#      tlsChallenge: {}

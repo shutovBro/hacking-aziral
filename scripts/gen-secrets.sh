@@ -10,6 +10,16 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
 fi
 
+# Миграция: дописать в .env ключи из .env.example, которых там ещё нет.
+while IFS= read -r line; do
+  [[ "$line" =~ ^[A-Z_][A-Z0-9_]*= ]] || continue
+  key="${line%%=*}"
+  if ! grep -q "^${key}=" .env; then
+    echo "[gen-secrets] добавляю отсутствующий ключ: ${key}"
+    printf '%s\n' "$line" >> .env
+  fi
+done < .env.example
+
 rand() { openssl rand -hex 32; }
 
 # Заменяем каждую строку, где значение == __CHANGE_ME__, на случайный секрет.

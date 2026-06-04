@@ -1,0 +1,69 @@
+# Authentik blueprint: автонастройка forward-auth для всех поддоменов Hacking-Aziral.
+# Authentik подхватит это при старте (volume /blueprints/custom) и создаст:
+#   - Provider (Proxy / Forward auth domain level)
+#   - Application (с этим provider'ом)
+#   - Embedded outpost уже работает в authentik-server и привязывается к provider'у
+#
+# Контекст root_domain задаётся через AUTHENTIK_BLUEPRINTS_CONTEXT_ROOT_DOMAIN env.
+version: 1
+metadata:
+  name: aziral-forward-auth
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+
+context:
+  root_domain: aziral.localhost
+
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    id: aziral-forward-auth
+    identifiers:
+      name: aziral-forward-auth
+    attrs:
+      name: aziral-forward-auth
+      authorization_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_domain
+      external_host: !Format ["https://auth.%s", !Context root_domain]
+      cookie_domain: !Context root_domain
+      access_token_validity: hours=8
+
+  - model: authentik_core.application
+    identifiers:
+      slug: aziral
+    attrs:
+      name: Hacking-Aziral
+      slug: aziral
+      provider: !KeyOf aziral-forward-auth
+      meta_description: "Единая платформа OSINT и пентеста"
+      meta_publisher: "Hacking-Aziral"
+      policy_engine_mode: any
+
+  - model: authentik_outposts.outpost
+    identifiers:
+      name: authentik Embedded Outpost
+    attrs:
+      providers:
+        - !KeyOf aziral-forward-auth
+      # Публичные URL'ы, чтобы OAuth-flow возвращал правильные адреса в браузер.
+      config:
+        authentik_host: !Format ["https://auth.%s/", !Context root_domain]
+        authentik_host_browser: !Format ["https://auth.%s/", !Context root_domain]
+        authentik_host_insecure: false
+        log_level: info
+        object_naming_template: "ak-outpost-%(name)s"
+        docker_network: null
+        docker_map_ports: true
+        docker_labels: null
+        container_image: null
+        kubernetes_replicas: 1
+        kubernetes_namespace: default
+        kubernetes_ingress_annotations: {}
+        kubernetes_ingress_secret_name: authentik-outpost-tls
+        kubernetes_ingress_class_name: null
+        kubernetes_service_type: ClusterIP
+        kubernetes_disabled_components: []
+        kubernetes_image_pull_secrets: []
+        kubernetes_json_patches: null

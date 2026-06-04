@@ -1,0 +1,114 @@
+# TLS: по умолчанию Traefik отдаёт самоподписанный серт, если в роуте нет certResolver.
+# На проде замени `tls: {}` ниже на `tls: { certResolver: letsencrypt }`.
+
+# Динамические роуты Traefik (file-provider).
+# Без зависимости от Docker API — всё описано декларативно.
+# Имена хостов берутся через подстановку Traefik (`{{env "ROOT_DOMAIN"}}` не работает в file-provider),
+# поэтому здесь жёстко зашит aziral.localhost. Если меняешь ROOT_DOMAIN — поправь и тут.
+
+http:
+  routers:
+    # ── Aziral Core (frontend SPA + /api на backend) ──
+    core-web:
+      rule: "Host(`aziral.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: core-frontend
+      tls: {}
+      middlewares: [authentik]
+
+    core-api:
+      rule: "Host(`aziral.aziral.localhost`) && PathPrefix(`/api`)"
+      entryPoints: [websecure]
+      service: core-backend
+      tls: {}
+      middlewares: [authentik, rate-limit]
+
+    # ── Authentik (SSO UI и forward-auth endpoint) ──
+    authentik:
+      rule: "Host(`auth.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: authentik
+      tls: {}
+      # Сам Authentik НЕ защищаем forward-auth — иначе бесконечный редирект.
+
+    # ── SpiderFoot ──
+    spiderfoot:
+      rule: "Host(`spiderfoot.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: spiderfoot
+      tls: {}
+      middlewares: [authentik]
+
+    # ── Superset ──
+    superset:
+      rule: "Host(`superset.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: superset
+      tls: {}
+      middlewares: [authentik]
+
+    # ── Activepieces ──
+    flows:
+      rule: "Host(`flows.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: activepieces
+      tls: {}
+      middlewares: [authentik]
+
+    # ── Cronicle ──
+    cron:
+      rule: "Host(`cron.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: cronicle
+      tls: {}
+      middlewares: [authentik]
+
+    # ── Web-terminal (ttyd) ──
+    webterm:
+      rule: "Host(`term.aziral.localhost`)"
+      entryPoints: [websecure]
+      service: webterm
+      tls: {}
+      middlewares: [authentik]
+
+    # ── Traefik dashboard (защищён SSO) ──
+    dashboard:
+      rule: "Host(`traefik.aziral.localhost`)"
+      entryPoints: [websecure]
+      tls: {}
+      service: api@internal
+      middlewares: [authentik]
+
+  services:
+    core-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://core-frontend:80"
+    core-backend:
+      loadBalancer:
+        servers:
+          - url: "http://core-backend:8000"
+    authentik:
+      loadBalancer:
+        servers:
+          - url: "http://authentik-server:9000"
+    spiderfoot:
+      loadBalancer:
+        servers:
+          - url: "http://spiderfoot:5001"
+    superset:
+      loadBalancer:
+        servers:
+          - url: "http://superset:8088"
+    activepieces:
+      loadBalancer:
+        servers:
+          - url: "http://activepieces:80"
+    cronicle:
+      loadBalancer:
+        servers:
+          - url: "http://cronicle:3012"
+    webterm:
+      loadBalancer:
+        servers:
+          - url: "http://webterm:7681"

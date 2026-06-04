@@ -41,8 +41,7 @@ services:
       - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
       - traefik_acme:/acme
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks: [edge]
+    networks: [edge]   # file-provider — Docker API не нужен
     labels:
       traefik.enable: "true"
       traefik.http.routers.traefik.rule: Host(`traefik.${ROOT_DOMAIN}`)
@@ -98,9 +97,13 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB}
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
     volumes:
       - authentik_media:/media
       - authentik_templates:/templates
+      - ./infra/auth/blueprints:/blueprints/custom:ro
     networks: [edge, internal]
     depends_on:
       postgres: { condition: service_healthy }
@@ -125,9 +128,13 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB}
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
     volumes:
       - authentik_media:/media
       - authentik_templates:/templates
+      - ./infra/auth/blueprints:/blueprints/custom:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks: [internal]
     depends_on:

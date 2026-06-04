@@ -1,0 +1,34 @@
+# Brand (бывший Tenant): сообщает Authentik публичный домен платформы,
+# чтобы OAuth redirect_uri формировался с правильным хостом.
+version: 1
+metadata:
+  name: aziral-brand
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+
+context:
+  root_domain: aziral.localhost
+
+entries:
+  # Сначала снимаем флаг default с встроенного brand'a, потом включаем у нашего.
+  - model: authentik_brands.brand
+    identifiers:
+      domain: authentik-default
+    attrs:
+      default: false
+
+  - model: authentik_brands.brand
+    identifiers:
+      domain: !Context root_domain
+    attrs:
+      domain: !Context root_domain
+      default: true
+      branding_title: Hacking-Aziral
+      flow_authentication:
+        !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      flow_invalidation:
+        !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      flow_user_settings:
+        !Find [authentik_flows.flow, [slug, default-user-settings-flow]]
+      default_application:
+        !Find [authentik_core.application, [slug, aziral]]
