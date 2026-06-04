@@ -1,0 +1,1 @@
+"""Aziral Core — backend пакет."""

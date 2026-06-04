@@ -1,0 +1,26 @@
+# Образ Celery-воркера: backend + установленные OSINT CLI-инструменты.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# git нужен для установки инструментов из исходников (фикс-версии задаются ниже).
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /srv
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# OSINT-инструменты (CLI-обёртки вызывают их как subprocess).
+# Версии можно закрепить на конкретный коммит для воспроизводимости.
+RUN pip install --no-cache-dir \
+      "sherlock-project" \
+      "holehe" \
+      "maigret" \
+      "git+https://github.com/laramies/theHarvester.git"
+
+COPY . .
+
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]

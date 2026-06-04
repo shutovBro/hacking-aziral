@@ -1,0 +1,307 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Hacking-Aziral — единый docker-compose.
+# Профили: core | osint | automation | analytics | ai | net | terminal
+# Поднять ядро:  docker compose --profile core up -d
+# ─────────────────────────────────────────────────────────────────────────
+
+name: aziral
+
+x-restart: &restart
+  restart: unless-stopped
+
+networks:
+  edge:
+    name: aziral_edge          # сеть, видимая Traefik (имя совпадает с providers.docker.network)
+  internal:
+    name: aziral_internal      # внутренняя сеть (БД, Redis, воркеры) — без выхода в edge
+
+volumes:
+  postgres_data:
+  redis_data:
+  traefik_acme:
+  authentik_media:
+  authentik_templates:
+  spiderfoot_data:
+  cronicle_data:
+
+services:
+  # ───────────────────────── EDGE / SSO (profile: core) ─────────────────────
+  traefik:
+    image: traefik:v3.3
+    profiles: [core]
+    <<: *restart
+    command:
+      - --configfile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_acme:/acme
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [edge]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.traefik.rule: Host(`traefik.${ROOT_DOMAIN}`)
+      traefik.http.routers.traefik.entrypoints: websecure
+      traefik.http.routers.traefik.tls.certresolver: letsencrypt
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.routers.traefik.middlewares: authentik@file
+
+  # ───────────────────────── ДАННЫЕ (profile: core) ─────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    profiles: [core]
+    <<: *restart
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres-init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    profiles: [core]
+    <<: *restart
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────── SSO: Authentik (profile: core) ─────────────────
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.12
+    profiles: [core]
+    <<: *restart
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.authentik.rule: Host(`auth.${ROOT_DOMAIN}`)
+      traefik.http.routers.authentik.entrypoints: websecure
+      traefik.http.routers.authentik.tls.certresolver: letsencrypt
+      traefik.http.services.authentik.loadbalancer.server.port: "9000"
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.12
+    profiles: [core]
+    <<: *restart
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  # ───────────────────────── AZIRAL CORE (profile: core) ────────────────────
+  core-backend:
+    build: ./core/backend
+    profiles: [core]
+    <<: *restart
+    environment:
+      CORE_SECRET_KEY: ${CORE_SECRET_KEY}
+      CORE_DATABASE_URL: ${CORE_DATABASE_URL}
+      CORE_REDIS_URL: ${CORE_REDIS_URL}
+      SCOPE_MODE: ${SCOPE_MODE}
+      CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY}
+      CORE_DEV_MODE: "false"
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.core-api.rule: Host(`aziral.${ROOT_DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.core-api.entrypoints: websecure
+      traefik.http.routers.core-api.tls.certresolver: letsencrypt
+      traefik.http.routers.core-api.middlewares: authentik@file,rate-limit@file
+      traefik.http.services.core-api.loadbalancer.server.port: "8000"
+
+  core-worker:
+    build:
+      context: ./core/backend
+      dockerfile: Dockerfile.worker
+    profiles: [core]
+    <<: *restart
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]
+    environment:
+      CORE_SECRET_KEY: ${CORE_SECRET_KEY}
+      CORE_DATABASE_URL: ${CORE_DATABASE_URL}
+      CORE_REDIS_URL: ${CORE_REDIS_URL}
+      SCOPE_MODE: ${SCOPE_MODE}
+      CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY}
+      SPIDERFOOT_URL: http://spiderfoot:5001
+    networks: [internal]
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+
+  core-frontend:
+    build: ./core/frontend
+    profiles: [core]
+    <<: *restart
+    networks: [edge]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.core-web.rule: Host(`aziral.${ROOT_DOMAIN}`)
+      traefik.http.routers.core-web.entrypoints: websecure
+      traefik.http.routers.core-web.tls.certresolver: letsencrypt
+      traefik.http.routers.core-web.middlewares: authentik@file
+      traefik.http.services.core-web.loadbalancer.server.port: "80"
+
+  # ───────────────────────── OSINT (profile: osint) ─────────────────────────
+  spiderfoot:
+    build:
+      context: ./tools/spiderfoot
+    profiles: [osint]
+    <<: *restart
+    volumes:
+      - spiderfoot_data:/opt/spiderfoot/data
+    networks: [edge, internal]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.spiderfoot.rule: Host(`spiderfoot.${ROOT_DOMAIN}`)
+      traefik.http.routers.spiderfoot.entrypoints: websecure
+      traefik.http.routers.spiderfoot.tls.certresolver: letsencrypt
+      traefik.http.routers.spiderfoot.middlewares: authentik@file
+      traefik.http.services.spiderfoot.loadbalancer.server.port: "5001"
+
+  # ───────────────────────── АНАЛИТИКА (profile: analytics) ─────────────────
+  superset:
+    image: apache/superset:4.1.1
+    profiles: [analytics]
+    <<: *restart
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPERSET_POSTGRES_DB: ${SUPERSET_POSTGRES_DB}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL}
+    entrypoint: ["/bin/bash", "/app/pythonpath/bootstrap.sh"]
+    volumes:
+      - ./analytics/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./analytics/superset/bootstrap.sh:/app/pythonpath/bootstrap.sh:ro
+      - ./analytics/superset/register_db.py:/app/pythonpath/register_db.py:ro
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.superset.rule: Host(`superset.${ROOT_DOMAIN}`)
+      traefik.http.routers.superset.entrypoints: websecure
+      traefik.http.routers.superset.tls.certresolver: letsencrypt
+      traefik.http.routers.superset.middlewares: authentik@file
+      traefik.http.services.superset.loadbalancer.server.port: "8088"
+
+  # ───────────────────── АВТОМАТИЗАЦИЯ (profile: automation) ─────────────────
+  activepieces:
+    image: activepieces/activepieces:0.39.4
+    profiles: [automation]
+    <<: *restart
+    environment:
+      AP_FRONTEND_URL: https://flows.${ROOT_DOMAIN}
+      AP_API_KEY: ${AP_API_KEY}
+      AP_ENCRYPTION_KEY: ${AP_ENCRYPTION_KEY}
+      AP_JWT_SECRET: ${AP_JWT_SECRET}
+      AP_QUEUE_MODE: REDIS
+      AP_EXECUTION_MODE: UNSANDBOXED
+      AP_TELEMETRY_ENABLED: "false"
+      AP_POSTGRES_HOST: postgres
+      AP_POSTGRES_PORT: "5432"
+      AP_POSTGRES_DATABASE: ${AP_POSTGRES_DB}
+      AP_POSTGRES_USERNAME: ${POSTGRES_USER}
+      AP_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AP_REDIS_HOST: redis
+      AP_REDIS_PORT: "6379"
+      AP_REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.flows.rule: Host(`flows.${ROOT_DOMAIN}`)
+      traefik.http.routers.flows.entrypoints: websecure
+      traefik.http.routers.flows.tls.certresolver: letsencrypt
+      traefik.http.routers.flows.middlewares: authentik@file
+      traefik.http.services.flows.loadbalancer.server.port: "80"
+
+  cronicle:
+    build:
+      context: ./tools/cronicle
+    profiles: [automation]
+    <<: *restart
+    environment:
+      CRONICLE_secret_key: ${CRONICLE_SECRET}
+      CRONICLE_base_app_url: https://cron.${ROOT_DOMAIN}
+    volumes:
+      - cronicle_data:/opt/cronicle/data
+    networks: [edge, internal]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.cron.rule: Host(`cron.${ROOT_DOMAIN}`)
+      traefik.http.routers.cron.entrypoints: websecure
+      traefik.http.routers.cron.tls.certresolver: letsencrypt
+      traefik.http.routers.cron.middlewares: authentik@file
+      traefik.http.services.cron.loadbalancer.server.port: "3012"
+
+  # ───────────────────── WEB-TERMINAL (profile: terminal) ───────────────────
+  webterm:
+    build:
+      context: ./tools/webterm
+    profiles: [terminal]
+    <<: *restart
+    networks: [edge]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.webterm.rule: Host(`term.${ROOT_DOMAIN}`)
+      traefik.http.routers.webterm.entrypoints: websecure
+      traefik.http.routers.webterm.tls.certresolver: letsencrypt
+      traefik.http.routers.webterm.middlewares: authentik@file
+      traefik.http.services.webterm.loadbalancer.server.port: "7681"

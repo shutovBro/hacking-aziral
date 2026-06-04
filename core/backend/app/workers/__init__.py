@@ -1,0 +1,1 @@
+"""Celery-воркеры Aziral Core."""

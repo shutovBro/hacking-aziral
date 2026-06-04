@@ -1,0 +1,35 @@
+:root {
+  /* Палитра — намеренный «ops-console» тёмный, не дефолтный шаблон */
+  --color-bg: oklch(16% 0.02 260);
+  --color-surface: oklch(21% 0.03 260);
+  --color-surface-2: oklch(26% 0.035 260);
+  --color-border: oklch(34% 0.03 260);
+  --color-text: oklch(94% 0.01 260);
+  --color-muted: oklch(68% 0.02 260);
+  --color-accent: oklch(72% 0.18 155);     /* кибер-зелёный */
+  --color-accent-2: oklch(70% 0.17 250);   /* электрик-синий */
+  --color-danger: oklch(64% 0.2 25);
+  --color-warn: oklch(78% 0.16 80);
+
+  /* Типографика */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --text-xs: 0.78rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-hero: clamp(1.8rem, 1rem + 3vw, 3rem);
+
+  /* Ритм/глубина */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 0 oklch(100% 0 0 / 0.04), 0 8px 24px oklch(0% 0 0 / 0.35);
+  --duration: 180ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}

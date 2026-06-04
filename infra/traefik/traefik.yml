@@ -1,0 +1,41 @@
+# Статическая конфигурация Traefik.
+# Динамика (middlewares, маршруты по labels) — в docker-compose labels и dynamic/.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    http:
+      middlewares:
+        - security-headers@file
+
+providers:
+  docker:
+    exposedByDefault: false           # сервис попадёт в роутинг только с label traefik.enable=true
+    network: aziral_edge
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /acme/acme.json
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"  # переключается скриптом на prod
+      tlsChallenge: {}

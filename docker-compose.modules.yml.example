@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Шаблон оверлея для модулей Фазы 6 (AI + Прокси). Скопируйте в
+# docker-compose.modules.yml и заполните env по README соответствующих репо
+# (сначала: ./scripts/init-vendor.sh). Запуск:
+#   docker compose -f docker-compose.yml -f docker-compose.modules.yml \
+#     --profile ai --profile net up -d
+#
+# Сервисы строятся из исходников в tools/vendor/* и подключаются за Traefik+SSO.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── sub2api — единый AI API-gateway (Claude/OpenAI/Gemini) ──
+  sub2api:
+    build:
+      context: ./tools/vendor/sub2api      # есть свой Dockerfile
+    profiles: [ai]
+    restart: unless-stopped
+    environment:
+      # TODO: заполнить по tools/vendor/sub2api/.env.example, например:
+      #   DB_HOST=postgres / DB_NAME=${SUB2API_POSTGRES_DB} / DB_USER / DB_PASSWORD
+      #   REDIS_ADDR=redis:6379 / REDIS_PASSWORD=${REDIS_PASSWORD}
+      #   JWT_SECRET=${SUB2API_JWT_SECRET}
+      #   ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} / OPENAI_API_KEY=${OPENAI_API_KEY}
+      PLACEHOLDER: "fill-from-repo-readme"
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.sub2api.rule: Host(`ai.${ROOT_DOMAIN}`)
+      traefik.http.routers.sub2api.entrypoints: websecure
+      traefik.http.routers.sub2api.tls.certresolver: letsencrypt
+      traefik.http.routers.sub2api.middlewares: authentik@file
+      # TODO: указать реальный внутренний порт sub2api (см. репо)
+      traefik.http.services.sub2api.loadbalancer.server.port: "8080"
+
+  # ── remnawave — панель прокси/egress (Xray) ──
+  remnawave:
+    build:
+      context: ./tools/vendor/remnawave    # есть свой Dockerfile (NestJS)
+    profiles: [net]
+    restart: unless-stopped
+    environment:
+      # TODO: заполнить по tools/vendor/remnawave/.env.sample, например:
+      #   DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${REMNAWAVE_POSTGRES_DB}
+      #   JWT_AUTH_SECRET=${REMNAWAVE_JWT_AUTH_SECRET}
+      #   JWT_API_TOKENS_SECRET=${REMNAWAVE_JWT_API_SECRET}
+      #   REDIS_HOST=redis / REDIS_PASSWORD=${REDIS_PASSWORD}
+      PLACEHOLDER: "fill-from-repo-readme"
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.remnawave.rule: Host(`proxy.${ROOT_DOMAIN}`)
+      traefik.http.routers.remnawave.entrypoints: websecure
+      traefik.http.routers.remnawave.tls.certresolver: letsencrypt
+      traefik.http.routers.remnawave.middlewares: authentik@file
+      # TODO: указать реальный внутренний порт remnawave (см. репо)
+      traefik.http.services.remnawave.loadbalancer.server.port: "3000"
+
+networks:
+  edge:
+    name: aziral_edge
+    external: true
+  internal:
+    name: aziral_internal
+    external: true
