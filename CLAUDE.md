@@ -151,6 +151,22 @@ hacking-aziral/
 - 3 коммита в `main`, никуда не запушено (готово для `gh repo create` или ручного remote)
 - 4 коммит в работе — нужно закоммитить фикс Modules.tsx + переключение в warn mode
 
+## Claude Code skills для платформы
+
+В `.claude/skills/anthropic-cybersec/` лежат **754 готовых
+cybersecurity/OSINT-скилла** (формат agentskills.io, лицензия Apache-2.0,
+маппинг на MITRE ATT&CK + NIST CSF 2.0 + MITRE ATLAS + D3FEND + NIST AI RMF).
+
+- Источник: https://github.com/mukul975/Anthropic-Cybersecurity-Skills
+- Установка / обновление: `./scripts/init-skills.sh`
+- Не в git (в .gitignore — 44МБ)
+- Подхватываются Claude Code автоматически при старте сессии в этой папке
+
+Категории (доминирующие): performing (172), implementing (167),
+detecting (87), analyzing (76), hunting (34), exploiting (32),
+testing (22). Триггерятся по триггеру задачи (например при разговоре
+про DNS exfiltration — поднимется `analyzing-dns-logs-for-exfiltration`).
+
 ## Что НЕ реализовано
 
 - **sub2api** (AI gateway) — есть compose template, нужно вендорить (`./scripts/init-vendor.sh`)

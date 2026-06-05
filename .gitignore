@@ -13,6 +13,10 @@ volumes/
 # Вендорные репозитории (клонируются через scripts/init-vendor.sh)
 tools/vendor/
 
+# Скиллы для Claude Code (754 OSINT/security skills — клонируются через
+# scripts/init-skills.sh). Не пушим 44МБ контента в репо.
+.claude/skills/anthropic-cybersec/
+
 # Python
 __pycache__/
 *.py[cod]
