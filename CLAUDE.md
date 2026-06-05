@@ -33,9 +33,12 @@ Control plane (наш код Aziral Core) оркестрирует ~15 open-sour
 ### Доступы
 
 - **Главный URL**: https://cybersecurity.aziral.com
-- **Логин**: `olzhikbro`
-- **Пароль**: `karolbmira2004`
-- Все секреты: `~/hacking-aziral/.env` на сервере (НЕ в git)
+- **Логин Authentik / Uptime Kuma**: `olzhikbro` / `karolbmira2004`
+- **Sudo на сервере (`olzhas`)**: `Skyler2004!`
+- **Telegram бот для алертов**: `@aziral_security_bot`, chat_id `8144239088`,
+  токен в `/etc/ssh/ssh-notify.sh.bak` или Vaultwarden
+- **Vaultwarden** (хранилище секретов): https://vault.aziral.com
+- Все секреты сервиса: `~/hacking-aziral/.env` на сервере (НЕ в git)
 
 ### Все URLs (все за SSO)
 
