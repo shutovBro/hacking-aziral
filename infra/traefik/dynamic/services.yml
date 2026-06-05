@@ -70,6 +70,27 @@ http:
       service: api@internal
       middlewares: [authentik]
 
+    # ── Stirling-PDF (extra-modules) ──
+    pdf:
+      rule: "Host(`pdf.cybersecurity.aziral.com`)"
+      entryPoints: [web]
+      service: stirling-pdf
+      middlewares: [authentik]
+
+    # ── Open WebUI (extra-modules) ──
+    webui:
+      rule: "Host(`webui.cybersecurity.aziral.com`)"
+      entryPoints: [web]
+      service: open-webui
+      middlewares: [authentik]
+
+    # ── Uptime Kuma (extra-modules) ──
+    uptime:
+      rule: "Host(`uptime.cybersecurity.aziral.com`)"
+      entryPoints: [web]
+      service: uptime-kuma
+      middlewares: [authentik]
+
   services:
     core-frontend:
       loadBalancer:
@@ -103,3 +124,15 @@ http:
       loadBalancer:
         servers:
           - url: "http://webterm:7681"
+    stirling-pdf:
+      loadBalancer:
+        servers:
+          - url: "http://stirling-pdf:8080"
+    open-webui:
+      loadBalancer:
+        servers:
+          - url: "http://open-webui:8080"
+    uptime-kuma:
+      loadBalancer:
+        servers:
+          - url: "http://uptime-kuma:3001"

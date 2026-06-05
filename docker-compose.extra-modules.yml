@@ -1,9 +1,13 @@
 # ─────────────────────────────────────────────────────────────────────────
-# Расширения платформы: полезные утилиты и альтернативы.
-# Запуск: docker compose -f docker-compose.yml -f docker-compose.extra-modules.yml \
-#   --profile pdf --profile webui --profile monitoring up -d
+# Расширения платформы: Stirling-PDF, Open WebUI, Uptime Kuma.
 #
-# Все подключаются за Traefik+SSO как основные сервисы.
+# Запуск (на проде, за NPM):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.extra-modules.yml \
+#     --profile pdf --profile webui --profile monitoring up -d
+#
+# Роуты заданы декларативно в infra/traefik/dynamic/services.yml
+# (file-provider). Labels Traefik здесь не используются — будут проигнорированы.
 # ─────────────────────────────────────────────────────────────────────────
 
 services:
@@ -13,16 +17,13 @@ services:
     profiles: [pdf]
     restart: unless-stopped
     environment:
-      # Настройки используются через переменные окружения, см. официальные доки
-      DOCKER_ENABLE_SECURITY: "false"  # для локали; на проде усилить
+      DOCKER_ENABLE_SECURITY: "false"
+      SYSTEM_DEFAULTLOCALE: "ru_RU"
+    volumes:
+      - stirling-pdf-data:/usr/share/tessdata
+      - stirling-pdf-config:/configs
+      - stirling-pdf-logs:/logs
     networks: [edge, internal]
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.pdf.rule: Host(`pdf.${ROOT_DOMAIN}`)
-      traefik.http.routers.pdf.entrypoints: websecure
-      traefik.http.routers.pdf.tls.certresolver: letsencrypt
-      traefik.http.routers.pdf.middlewares: authentik@file
-      traefik.http.services.pdf.loadbalancer.server.port: "8080"
 
   # ───────────────── Веб-UI к AI моделям (profile: webui) ─────────────────
   open-webui:
@@ -30,20 +31,14 @@ services:
     profiles: [webui]
     restart: unless-stopped
     environment:
-      # Подключение к sub2api (если он есть) или Ollama:
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy}
-      OPENAI_API_BASE_URL: http://sub2api:8080/v1
-      # Для локального Ollama: http://ollama:11434
+      # Подключается к OpenAI напрямую (sub2api пока не поднят).
+      # Если будет поднят sub2api — заменить OPENAI_API_BASE_URL на http://sub2api:8080/v1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WEBUI_AUTH: "false"           # SSO через Authentik на уровне Traefik
+      ENABLE_SIGNUP: "false"
+    volumes:
+      - open-webui-data:/app/backend/data
     networks: [edge, internal]
-    depends_on:
-      - redis                        # Redis используется для сессий
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.webui.rule: Host(`webui.${ROOT_DOMAIN}`)
-      traefik.http.routers.webui.entrypoints: websecure
-      traefik.http.routers.webui.tls.certresolver: letsencrypt
-      traefik.http.routers.webui.middlewares: authentik@file
-      traefik.http.services.webui.loadbalancer.server.port: "3000"
 
   # ────────────── Мониторинг доступности (profile: monitoring) ────────────
   uptime-kuma:
@@ -53,15 +48,12 @@ services:
     volumes:
       - uptime-kuma-data:/app/data
     networks: [edge, internal]
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.uptime.rule: Host(`uptime.${ROOT_DOMAIN}`)
-      traefik.http.routers.uptime.entrypoints: websecure
-      traefik.http.routers.uptime.tls.certresolver: letsencrypt
-      traefik.http.routers.uptime.middlewares: authentik@file
-      traefik.http.services.uptime.loadbalancer.server.port: "3001"
 
 volumes:
+  stirling-pdf-data:
+  stirling-pdf-config:
+  stirling-pdf-logs:
+  open-webui-data:
   uptime-kuma-data:
 
 networks:

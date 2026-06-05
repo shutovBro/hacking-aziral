@@ -15,12 +15,16 @@ const MODULES: Module[] = [
   { name: "Cronicle", desc: "Расписания сканов", sub: "cron", group: "Автоматизация" },
   { name: "Remnawave", desc: "Прокси/egress (Xray)", sub: "proxy", group: "Сеть" },
   { name: "Authentik", desc: "SSO и пользователи", sub: "auth", group: "Платформа" },
+  { name: "Uptime Kuma", desc: "Мониторинг доступности сервисов", sub: "uptime", group: "Платформа" },
+  { name: "Stirling-PDF", desc: "Обработка PDF: merge/split/OCR/метаданные", sub: "pdf", group: "Утилиты" },
+  { name: "Open WebUI", desc: "Чат с LLM (через OpenAI API)", sub: "webui", group: "AI" },
 ];
 
 // Известные префиксы наших модулей — чтобы корректно вычислить «корневой» домен,
 // когда страница открыта НЕ с главного хоста (вдруг попали на flow.* или term.*).
 const KNOWN_PREFIXES = new Set([
   "spiderfoot", "term", "superset", "flows", "cron", "proxy", "auth", "traefik",
+  "uptime", "pdf", "webui",
 ]);
 
 /**
