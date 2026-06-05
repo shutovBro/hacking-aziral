@@ -199,12 +199,14 @@ testing (22). Триггерятся по триггеру задачи (нап�
 
 ## Что НЕ реализовано
 
-- **sub2api** (AI gateway) — есть compose template, нужно вендорить (`./scripts/init-vendor.sh`)
-- **remnawave** (Xray) — то же
-- **MobileAgent / fingerprint-suite** — документация есть, интеграция руками
-- **Stirling-PDF / Open WebUI / Uptime Kuma** — есть `docker-compose.extra-modules.yml`, не подняты на сервере
-- **Push в GitHub** — не делалось (приватный или публичный — решит пользователь)
-- **e2e Playwright тесты** — каркас есть (`core/frontend/e2e/`), не запускались на проде
+- **Remnawave Node** — backend+frontend подняты, но Node-узел с Xray нужен на ОТДЕЛЬНОМ VPS (другой IP), иначе egress proxy не даёт другой IP. Hetzner CX22 ~€5/мес. После — в админке создать Inbound + User.
+- **MobileAgent / fingerprint-suite** — клонированы в `tools/vendor/`, интеграция руками
+- **TOTP enroll** для admin — стейджи в Authentik blueprint готовы, надо зайти в UI и привязать к своему аккаунту
+- **Password policy binding** в Authentik — policy создана (`aziral-strong-password`), привязать руками к prompt-stage через Customisation → Policies → Bindings
+- **Vaultwarden migration** — креды (sudo, bot token, chat_id) сейчас в CLAUDE.md, надо перенести в Vault
+- **CF IP hiding** — отложено. Бесплатный Universal SSL не покрывает 2-level subdomain `cybersecurity.aziral.com`. Решение: $10/мес ACM или плоский домен типа `hackaziral.com`
+- **Test restore из backup** — критично сделать однажды для уверенности что бэкапы рабочие
+- **Activepieces playbooks** — есть простой alert hook в core-backend; полноценные flow для multi-step orchestration не настроены
 
 ## История фаз (что было сделано)
 
@@ -221,6 +223,12 @@ testing (22). Триггерятся по триггеру задачи (нап�
 10. Поднять модули (план)
 11. DNS + NPM proxy (Cloudflare, серое облако, wildcard)
 12. Полный деплой на сервер (за NPM, файл-провайдер Traefik, LE через NPM API)
+13. Live SSO для extra-modules (Stirling-PDF, Open WebUI, Uptime Kuma) + Telegram алерты Kuma
+14. AI gateway (sub2api) + Xray panel (Remnawave backend/frontend) подняты за SSO
+15. Cronicle 3 weekly OSINT-сканов; алерты `findings.confidence ≥ 0.85` → @aziral_security_bot
+16. Superset OSINT Overview dashboard на 6 VIEW + 36 seed-findings; smoke e2e 13/13 OK
+17. 754 Anthropic-Cybersecurity-Skills в `.claude/skills/anthropic-cybersec/`
+18. Security hardening — UFW, iptables (NPM admin :81), SSH hardening, fail2ban, unattended-upgrades, Watchtower, Authentik password policy + TOTP stages, daily backup → `/var/backups/aziral`
 
 ## Ключевые баги исправленные
 
