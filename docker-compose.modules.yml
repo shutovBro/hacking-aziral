@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Модули Фазы 6 — AI + Прокси.
+#
+# Сервисы строятся из исходников tools/vendor/* (см. ./scripts/init-vendor.sh).
+# Используют наши общие postgres + redis (из profile core).
+# Роуты декларируются в infra/traefik/dynamic/services.yml (file-provider).
+#
+# Запуск:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.modules.yml --profile ai up -d
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── sub2api — AI API-gateway (Claude / OpenAI / Gemini) ──
+  # Запускается в режиме RUN_MODE=simple (без SaaS-биллинга),
+  # как чистый прокси к upstream-провайдерам.
+  sub2api:
+    build:
+      context: ./tools/vendor/sub2api
+    image: aziral/sub2api:latest
+    profiles: [ai]
+    restart: unless-stopped
+    environment:
+      # Server
+      BIND_HOST: "0.0.0.0"
+      SERVER_PORT: "8080"
+      SERVER_MODE: "release"
+      RUN_MODE: "simple"
+      TZ: "Asia/Almaty"
+      # Logging
+      LOG_LEVEL: "info"
+      LOG_FORMAT: "json"
+      LOG_OUTPUT_TO_STDOUT: "true"
+      LOG_OUTPUT_TO_FILE: "false"
+      # PostgreSQL (наш общий)
+      DATABASE_HOST: "postgres"
+      DATABASE_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${SUB2API_POSTGRES_DB:-sub2api}
+      # Redis (наш общий)
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: "3"
+      # Admin (создаётся при первом запуске)
+      ADMIN_EMAIL: ${SUB2API_ADMIN_EMAIL:-admin@cybersecurity.aziral.com}
+      ADMIN_PASSWORD: ${SUB2API_ADMIN_PASSWORD}
+      # Криптография (стабильные ключи между рестартами)
+      JWT_SECRET: ${SUB2API_JWT_SECRET}
+      TOTP_ENCRYPTION_KEY: ${SUB2API_TOTP_KEY}
+      # Frontend URL (для писем / OAuth redirect)
+      SERVER_FRONTEND_URL: "https://ai.${ROOT_DOMAIN}"
+      # Безопасность: разрешаем internal hosts (мы в private docker net)
+      SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS: "true"
+      SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP: "true"
+    volumes:
+      - sub2api_data:/app/data
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  sub2api_data:
+
+networks:
+  edge:
+    name: aziral_edge
+    external: true
+  internal:
+    name: aziral_internal
+    external: true

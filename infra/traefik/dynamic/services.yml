@@ -91,6 +91,13 @@ http:
       service: uptime-kuma
       middlewares: [authentik]
 
+    # ── sub2api (AI gateway, modules profile ai) ──
+    sub2api:
+      rule: "Host(`ai.cybersecurity.aziral.com`)"
+      entryPoints: [web]
+      service: sub2api
+      middlewares: [authentik]
+
   services:
     core-frontend:
       loadBalancer:
@@ -136,3 +143,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://uptime-kuma:3001"
+    sub2api:
+      loadBalancer:
+        servers:
+          - url: "http://sub2api:8080"
