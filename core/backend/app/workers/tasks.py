@@ -1,8 +1,9 @@
 """Celery-задачи: фактический запуск сканов и сохранение результатов."""
 from __future__ import annotations
 
+from ..alerts import AlertContext, maybe_alert
 from ..db import SessionLocal
-from ..models import Entity, Finding, Job, JobStatus
+from ..models import Entity, Finding, Job, JobStatus, Target
 from ..orchestrators import run_tool
 from .celery_app import celery_app
 
@@ -42,7 +43,11 @@ def run_scan(job_id: int) -> dict:
             db.commit()
             return {"job_id": job_id, "status": "failed", "error": str(job.log)}
 
+        target = db.get(Target, job.target_id)
+        target_name = target.name if target else f"#{job.target_id}"
+
         saved = 0
+        alert_buffer: list[AlertContext] = []
         for item in results:
             entity = _upsert_entity(db, job.target_id, item.entity_kind, item.entity_value)
             db.add(
@@ -54,10 +59,23 @@ def run_scan(job_id: int) -> dict:
                 )
             )
             saved += 1
+            alert_buffer.append(
+                AlertContext(
+                    target_name=target_name,
+                    tool=job.tool,
+                    entity_kind=item.entity_kind,
+                    entity_value=item.entity_value,
+                    confidence=item.confidence,
+                )
+            )
 
         job.status = JobStatus.completed
         job.log = f"Готово. Сохранено findings: {saved}"
         db.commit()
+
+        # Алерты — после commit'а, чтобы не блокировать запись при сбоях доставки.
+        for ctx in alert_buffer:
+            maybe_alert(ctx)
         return {"job_id": job_id, "status": "completed", "findings": saved}
     finally:
         db.close()
