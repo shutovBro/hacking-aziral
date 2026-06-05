@@ -30,6 +30,13 @@ htmlcov/
 
 # Node / frontend
 node_modules/
+
+# Playwright e2e артефакты
+test-results/
+playwright-report/
+
+# pnpm локальные
+pnpm-workspace.yaml
 dist/
 .vite/
 *.log

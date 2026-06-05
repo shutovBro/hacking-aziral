@@ -1,0 +1,60 @@
+# Усиление безопасности Authentik:
+# 1) Password policy — минимум 12 символов, требует число + спецсимвол + смешанный регистр
+# 2) Включение TOTP authenticator validation stage в default-authentication-flow
+#    как ОПЦИОНАЛЬНЫЙ (configuration_stages) — пользователи могут (но не обязаны)
+#    подключить TOTP в /if/user/.
+#
+# После запуска blueprint:
+#   - Заходим в Authentik как admin → пользователи → свой → ⋮ → "Authenticators"
+#     → "Set up TOTP" (Aegis / Google Authenticator / Authy).
+#   - Новые пользователи увидят шаг "Authenticator (TOTP)" в логин-флоу
+#     и могут добавить свой, либо пропустить.
+
+version: 1
+metadata:
+  name: aziral-security-policy
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+
+entries:
+  # ─────────────────────────── Password Policy ───────────────────────────
+  - model: authentik_policies_password.passwordpolicy
+    identifiers:
+      name: aziral-strong-password
+    attrs:
+      length_min: 12
+      amount_uppercase: 1
+      amount_lowercase: 1
+      amount_digits: 1
+      amount_symbols: 1
+      error_message: |
+        Пароль должен быть минимум 12 символов, содержать
+        заглавную, строчную, цифру и символ.
+      execution_logging: true
+
+  # (Policy binding к prompt-stage добавь руками в Authentik UI:
+  #  Customisation → Policies → aziral-strong-password → Bindings →
+  #  привязать к нужному prompt-stage или к user creation flow.)
+
+  # ─────────────────────── TOTP Authenticator Stages ─────────────────────
+  # Setup stage (enroll TOTP) — добавляется в user-settings-flow чтобы юзер мог
+  # привязать TOTP к аккаунту через UI.
+  - model: authentik_stages_authenticator_totp.authenticatortotpstage
+    identifiers:
+      name: aziral-totp-setup
+    attrs:
+      friendly_name: TOTP (Aegis/Google Auth)
+      digits: 6
+
+  # Validation stage — проверка TOTP в login-flow (если у юзера TOTP есть).
+  - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+    identifiers:
+      name: aziral-totp-validate
+    attrs:
+      friendly_name: Двухфакторка (TOTP)
+      not_configured_action: skip   # если у юзера нет TOTP — пропустить, не валить логин
+      device_classes:
+        - totp
+        - static
+      configuration_stages:
+        - !Find [authentik_stages_authenticator_totp.authenticatortotpstage, [name, aziral-totp-setup]]

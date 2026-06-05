@@ -151,6 +151,36 @@ hacking-aziral/
 - 3 коммита в `main`, никуда не запушено (готово для `gh repo create` или ручного remote)
 - 4 коммит в работе — нужно закоммитить фикс Modules.tsx + переключение в warn mode
 
+## Security hardening (2026-06-06)
+
+### Что закрыто на сервере
+
+- **UFW** активен. Allow: 22 SSH, 80/443 HTTP(S), Mailcow-порты (25/110/143/465/587/993/995/4190), GitLab 7777, TURN/STUN 3478, 3010-3030 misc. Прочее deny.
+- **NPM admin :81** доступен **только с моего IP `95.59.96.151`** (iptables INPUT rule, persisted через `iptables-persistent`). Проверено: US/DE/FI = connection timed out.
+- **SSH**: `PermitRootLogin no`, `PasswordAuthentication no`, `MaxAuthTries 3`, `LoginGraceTime 30`. Только key-based.
+- **fail2ban**: SSH jail активен (ban 24h после 3 попыток).
+- **unattended-upgrades**: Debian security патчи автоматом.
+- **Watchtower**: контейнерные обновления опт-ин через label `com.centurylinklabs.watchtower.enable=true`, по воскресеньям 04:00 Almaty. Контейнер `aziral-watchtower`.
+- **Backup**: `/usr/local/sbin/aziral-backup.sh` через cron daily 03:30 → `/var/backups/aziral/` (pg_dumpall + 6 томов). Retention 14 дней.
+
+### Authentik security blueprint
+
+`infra/auth/blueprints/aziral-security-policy.yaml`:
+- Password policy `aziral-strong-password` — мин 12 chars, обязательны upper/lower/digit/symbol.
+- TOTP stages созданы (`aziral-totp-setup`, `aziral-totp-validate` с `not_configured_action=skip`).
+- **Дальше руками в UI**: чтобы реально включить policy — Customisation → Policies → Bindings → привязать к prompt-stage / user creation flow. Для 2FA на свой аккаунт: User menu → MFA → Add TOTP.
+
+### Cloudflare (отложено)
+
+Включали proxy для `cybersecurity.*` → откатили: бесплатный CF Universal SSL покрывает только `aziral.com` + `*.aziral.com` (один уровень), наш домен второго уровня требует $10/мес Advanced Certificate Manager.
+
+Альтернатива на будущее: купить плоский домен (`hackaziral.com`, etc.), мигрировать туда — Universal SSL покроет всё бесплатно, IP скроется.
+
+### Что НЕ закрыто (compromise)
+
+- Origin IP `46.225.166.18` виден через DNS (cybersecurity.*, mail.aziral.com, gitlab.aziral.com и т.п.). Прямой DDoS возможен, но защищён SSO + rate-limit + fail2ban.
+- Mailcow и другие чужие сервисы на том же сервере — открыты как требуется их функционалу.
+
 ## Claude Code skills для платформы
 
 В `.claude/skills/anthropic-cybersec/` лежат **754 готовых
