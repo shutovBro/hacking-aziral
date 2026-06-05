@@ -98,6 +98,14 @@ http:
       service: sub2api
       middlewares: [authentik]
 
+    # ── remnawave (Xray proxy panel, modules profile net) ──
+    # Поддомен proxy.* как и было запланировано в Modules.tsx
+    remnawave:
+      rule: "Host(`proxy.cybersecurity.aziral.com`)"
+      entryPoints: [web]
+      service: remnawave
+      middlewares: [authentik]
+
   services:
     core-frontend:
       loadBalancer:
@@ -147,3 +155,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://sub2api:8080"
+    remnawave:
+      loadBalancer:
+        servers:
+          - url: "http://remnawave:3000"

@@ -61,8 +61,69 @@ services:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
 
+  # ── remnawave — Xray proxy panel (профиль net) ──
+  # Backend + встроенный frontend admin UI. Использует наш postgres (DB remnawave)
+  # и собственный valkey (так требует remnawave, через unix socket).
+  # Node component (собственно Xray) ставится отдельно на другом VPS.
+  remnawave:
+    image: remnawave/backend:2
+    profiles: [net]
+    restart: unless-stopped
+    environment:
+      APP_PORT: "3000"
+      METRICS_PORT: "3001"
+      API_INSTANCES: "1"
+      # Используем наш общий postgres, отдельная БД remnawave
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${REMNAWAVE_POSTGRES_DB:-remnawave}
+      # Valkey через unix socket (как в их официальном compose)
+      REDIS_SOCKET: /var/run/valkey/valkey.sock
+      # JWT
+      JWT_AUTH_SECRET: ${REMNAWAVE_JWT_AUTH_SECRET}
+      JWT_API_TOKENS_SECRET: ${REMNAWAVE_JWT_API_SECRET}
+      # Домены
+      PANEL_DOMAIN: proxy.${ROOT_DOMAIN}
+      FRONT_END_DOMAIN: "*"
+      SUB_PUBLIC_DOMAIN: proxy.${ROOT_DOMAIN}/api/sub
+      # Документация / метрики
+      IS_DOCS_ENABLED: "false"
+      METRICS_USER: ${REMNAWAVE_METRICS_USER:-metrics}
+      METRICS_PASS: ${REMNAWAVE_METRICS_PASS}
+      # Уведомления выключены пока нет нод
+      IS_TELEGRAM_NOTIFICATIONS_ENABLED: "false"
+      WEBHOOK_ENABLED: "false"
+      BANDWIDTH_USAGE_NOTIFICATIONS_ENABLED: "false"
+    volumes:
+      - remnawave-valkey-socket:/var/run/valkey
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      remnawave-valkey: { condition: service_healthy }
+
+  remnawave-valkey:
+    image: valkey/valkey:9-alpine
+    profiles: [net]
+    restart: unless-stopped
+    volumes:
+      - remnawave-valkey-socket:/var/run/valkey
+    command: >
+      valkey-server
+      --save ""
+      --appendonly no
+      --maxmemory-policy noeviction
+      --loglevel warning
+      --unixsocket /var/run/valkey/valkey.sock
+      --unixsocketperm 777
+      --port 0
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-s", "/var/run/valkey/valkey.sock", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks: [internal]
+
 volumes:
   sub2api_data:
+  remnawave-valkey-socket:
 
 networks:
   edge:
