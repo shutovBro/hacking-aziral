@@ -197,6 +197,51 @@ detecting (87), analyzing (76), hunting (34), exploiting (32),
 testing (22). Триггерятся по триггеру задачи (например при разговоре
 про DNS exfiltration — поднимется `analyzing-dns-logs-for-exfiltration`).
 
+## AziralPDF — отдельный SaaS проект (2026-06-06)
+
+Отдельный коммерческий проект на базе Stirling PDF. Подробности:
+`~/Documents/Obsidian Vault/Заметки/AziralPDF - SaaS проект (2026-06-06).md`
+
+### Краткая сводка
+
+| Что | Где |
+|---|---|
+| Локальный код | `/Users/mpmr/Documents/projects/AziralPDF/` |
+| GitHub (private) | https://github.com/shutovBro/aziral-pdf |
+| Production URL | https://pdf.aziral.com (БЕЗ SSO — публичный SaaS) |
+| Внутренний URL | https://pdf.cybersecurity.aziral.com (С SSO) |
+| Контейнер | `hacking-aziral-aziralpy-pdf-1` (был `stirling-pdf`) |
+| Volumes | `aziralpy-pdf-{data,config,logs}` |
+| NPM proxy host | ID **44** (pdf.aziral.com → aziral-traefik-1:80) |
+| LE cert | ID **88** |
+| Traefik route | `pdf-aziral` в `infra/traefik/dynamic/services.yml` (НЕТ middleware authentik) |
+| Admin Stirling | `admin` / `AziralAdmin2026!` |
+
+### Что сделано
+- Локальный проект AziralPDF (docker-compose, .env.example, README, LICENSE, Makefile)
+- Приватный GitHub репо `shutovBro/aziral-pdf` запушен
+- На сервере: переименовали сервис, настроили DNS+SSL+NPM+Traefik для `pdf.aziral.com`
+- Env переменные ребрендинга применены (UI_APP_NAME, APP_HOME_NAME, LEGAL_*)
+- Включён `DOCKER_ENABLE_SECURITY=true` для встроенной регистрации Stirling
+
+### Известная проблема ⚠️
+**Stirling v2.11.0 убрали бесплатный ребрендинг** — title в браузере остаётся `Stirling PDF`. Все UI_APP_NAME env переменные теперь Enterprise feature ($83.25/мес).
+
+### Решение → форкнуть Stirling
+Пользователь выбрал форк. План:
+1. `gh repo fork Stirling-Tools/Stirling-PDF`
+2. Глобальный replace "Stirling PDF" → "AziralPDF" (Java + HTML + i18n)
+3. Заменить logo + favicon
+4. Собрать свой Docker image, запушить в Docker Hub / ghcr.io
+5. Обновить `docker-compose.extra-modules.yml`
+
+### Не сделано
+- [ ] Форк Stirling и свой Docker image
+- [ ] Stripe интеграция
+- [ ] Landing page с тарифами
+- [ ] Privacy + Terms страницы на aziral.com
+- [ ] Регистрация ИП/ТОО
+
 ## Что НЕ реализовано
 
 - **Remnawave Node** — backend+frontend подняты, но Node-узел с Xray нужен на ОТДЕЛЬНОМ VPS (другой IP), иначе egress proxy не даёт другой IP. Hetzner CX22 ~€5/мес. После — в админке создать Inbound + User.
@@ -229,6 +274,7 @@ testing (22). Триггерятся по триггеру задачи (нап�
 16. Superset OSINT Overview dashboard на 6 VIEW + 36 seed-findings; smoke e2e 13/13 OK
 17. 754 Anthropic-Cybersecurity-Skills в `.claude/skills/anthropic-cybersec/`
 18. Security hardening — UFW, iptables (NPM admin :81), SSH hardening, fail2ban, unattended-upgrades, Watchtower, Authentik password policy + TOTP stages, daily backup → `/var/backups/aziral`
+19. AziralPDF SaaS — отдельный коммерческий проект на pdf.aziral.com, форк Stirling в работе. См. отдельную секцию выше и заметку в Obsidian.
 
 ## Ключевые баги исправленные
 
