@@ -35,3 +35,19 @@ http:
       rateLimit:
         average: 30
         burst: 15
+
+    # StripPrefix /legal for the legal-nginx sidecar
+    legal-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /legal
+
+    # Strict rate-limit for login endpoint (brute-force jail)
+    login-rate-limit:
+      rateLimit:
+        average: 5      # ~5 attempts per second...
+        period: 60s     # ...averaged over 1 minute = 300/min sustained max
+        burst: 10       # but bursts up to 10 allowed
+        sourceCriterion:
+          ipStrategy:
+            depth: 2     # trust CF + Traefik forwarded-for hops

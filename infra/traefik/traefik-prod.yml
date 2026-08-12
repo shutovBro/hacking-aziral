@@ -1,4 +1,4 @@
-# Production: TLS терминируется на NPM, поэтому Traefik не делает HTTP→HTTPS redirect.
+# Production: TLS терминируется на NPM, Traefik доверяет X-Forwarded-Proto:https от NPM.
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
@@ -11,11 +11,18 @@ api:
 entryPoints:
   web:
     address: ':80'
+    # ВАЖНО: доверяем заголовкам X-Forwarded-* от Docker-сетей (где сидит NPM).
+    # insecure: true — принимаем headers от ВСЕХ источников. На проде платформа
+    # доступна только через внутреннюю сеть Docker, наружу 80/443 не открыты.
+    forwardedHeaders:
+      insecure: true
     http:
       middlewares:
         - security-headers@file
   websecure:
     address: ':443'
+    forwardedHeaders:
+      insecure: true
     http:
       middlewares:
         - security-headers@file

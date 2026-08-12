@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Расширения платформы: Stirling-PDF, Open WebUI, Uptime Kuma.
+#
+# Запуск (на проде, за NPM):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.extra-modules.yml \
+#     --profile pdf --profile webui --profile monitoring up -d
+#
+# Роуты заданы декларативно в infra/traefik/dynamic/services.yml
+# (file-provider). Labels Traefik здесь не используются — будут проигнорированы.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ───────────────────── PDF обработка (profile: pdf) ──────────────────────
+  stirling-pdf:
+    image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
+    profiles: [pdf]
+    restart: unless-stopped
+    environment:
+      DOCKER_ENABLE_SECURITY: "false"
+      SYSTEM_DEFAULTLOCALE: "ru_RU"
+    volumes:
+      - stirling-pdf-data:/usr/share/tessdata
+      - stirling-pdf-config:/configs
+      - stirling-pdf-logs:/logs
+    networks: [edge, internal]
+
+  # ───────────────── Веб-UI к AI моделям (profile: webui) ─────────────────
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    profiles: [webui]
+    restart: unless-stopped
+    environment:
+      # Подключается к OpenAI напрямую (sub2api пока не поднят).
+      # Если будет поднят sub2api — заменить OPENAI_API_BASE_URL на http://sub2api:8080/v1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WEBUI_AUTH: "false"           # SSO через Authentik на уровне Traefik
+      ENABLE_SIGNUP: "false"
+    volumes:
+      - open-webui-data:/app/backend/data
+    networks: [edge, internal]
+
+  # ────────────── Мониторинг доступности (profile: monitoring) ────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    profiles: [monitoring]
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks: [edge, internal]
+
+volumes:
+  stirling-pdf-data:
+  stirling-pdf-config:
+  stirling-pdf-logs:
+  open-webui-data:
+  uptime-kuma-data:
+
+networks:
+  edge:
+    name: aziral_edge
+    external: true
+  internal:
+    name: aziral_internal
+    external: true

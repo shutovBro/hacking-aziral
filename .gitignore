@@ -10,13 +10,6 @@ volumes/
 *.sqlite
 *.db
 
-# Вендорные репозитории (клонируются через scripts/init-vendor.sh)
-tools/vendor/
-
-# Скиллы для Claude Code (754 OSINT/security skills — клонируются через
-# scripts/init-skills.sh). Не пушим 44МБ контента в репо.
-.claude/skills/anthropic-cybersec/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -30,13 +23,6 @@ htmlcov/
 
 # Node / frontend
 node_modules/
-
-# Playwright e2e артефакты
-test-results/
-playwright-report/
-
-# pnpm локальные
-pnpm-workspace.yaml
 dist/
 .vite/
 *.log
@@ -51,3 +37,7 @@ pnpm-debug.log*
 # Traefik ACME
 infra/traefik/acme.json
 letsencrypt/
+
+.env
+.env.*
+.DS_Store

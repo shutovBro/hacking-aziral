@@ -74,8 +74,29 @@ http:
     pdf:
       rule: "Host(`pdf.cybersecurity.aziral.com`)"
       entryPoints: [web]
-      service: stirling-pdf
+      service: aziralpy-pdf
       middlewares: [authentik]
+
+    # ── AziralPDF (отдельный домен для коммерческого SaaS, без SSO) ──
+    pdf-aziral:
+      rule: "Host(`pdf.aziral.com`)"
+      entryPoints: [web]
+      service: aziralpy-pdf
+
+    # ── AziralPDF login throttle (brute-force protection) ──
+    pdf-aziral-login:
+      rule: "Host(`pdf.aziral.com`) && Path(`/api/v1/auth/login`)"
+      entryPoints: [web]
+      service: aziralpy-pdf
+      middlewares: [login-rate-limit]
+      priority: 100
+
+    # ── AziralPDF legal docs (статика на pdf.aziral.com/legal/*) ──
+    legal:
+      rule: "Host(`pdf.aziral.com`) && PathPrefix(`/legal`)"
+      entryPoints: [web]
+      service: legal-nginx
+      middlewares: [legal-stripprefix]
 
     # ── Open WebUI (extra-modules) ──
     webui:
@@ -139,10 +160,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://webterm:7681"
-    stirling-pdf:
+    aziralpy-pdf:
       loadBalancer:
         servers:
-          - url: "http://stirling-pdf:8080"
+          - url: "http://aziralpy-pdf:8080"
     open-webui:
       loadBalancer:
         servers:
@@ -159,3 +180,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://remnawave:3000"
+    legal-nginx:
+      loadBalancer:
+        servers:
+          - url: "http://legal-nginx:80"

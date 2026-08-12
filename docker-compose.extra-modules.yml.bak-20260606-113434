@@ -13,28 +13,13 @@
 services:
   # ───────────────────── PDF обработка (profile: pdf) ──────────────────────
   aziralpy-pdf:
-    image: aziralpdf:latest
+    image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
     profiles: [pdf]
     restart: unless-stopped
     environment:
       DOCKER_ENABLE_SECURITY: "true"
-      SECURITY_INITIALLOGIN_USERNAME: "${SECURITY_INITIALLOGIN_USERNAME:-admin}"
-      SECURITY_INITIALLOGIN_PASSWORD: "${SECURITY_INITIALLOGIN_PASSWORD:?missing in .env}"
-      # SMTP via on-host Mailcow (mail.aziral.com)
-      MAIL_ENABLED: "${MAIL_ENABLED:-true}"
-      MAIL_ENABLEINVITES: "${MAIL_ENABLEINVITES:-true}"
-      MAIL_HOST: "${MAIL_HOST:-mail.aziral.com}"
-      MAIL_PORT: "${MAIL_PORT:-587}"
-      MAIL_USERNAME: "${MAIL_USERNAME:-noreply@aziral.com}"
-      MAIL_PASSWORD: "${MAIL_PASSWORD:?missing in .env}"
-      MAIL_FROM: "${MAIL_FROM:-noreply@aziral.com}"
-      MAIL_STARTTLSENABLE: "${MAIL_STARTTLSENABLE:-true}"
-      MAIL_STARTTLSREQUIRED: "${MAIL_STARTTLSREQUIRED:-true}"
-      MAIL_SSLENABLE: "${MAIL_SSLENABLE:-false}"
-      MAIL_SSLCHECKSERVERIDENTITY: "${MAIL_SSLCHECKSERVERIDENTITY:-false}"
-      MAIL_SSLTRUST: "${MAIL_SSLTRUST:-*}"
-      MAIL_INVITELINKEXPIRYHOURS: "${MAIL_INVITELINKEXPIRYHOURS:-72}"
-
+      SECURITY_INITIALLOGIN_USERNAME: "admin"
+      SECURITY_INITIALLOGIN_PASSWORD: "AziralAdmin2026!"
       SECURITY_CSRFDISABLED: "false"
       SYSTEM_DEFAULTLOCALE: "ru_RU"
       # ─── РЕБРЕНДИНГ AziralPDF ───
@@ -51,11 +36,11 @@ services:
       SYSTEM_SHOWUPDATEONLYADMIN: "true"
       METRICS_ENABLED: "false"
       SHOW_SURVEY: "false"
-      LEGAL_TERMSANDCONDITIONS: "https://pdf.aziral.com/legal/terms"
-      LEGAL_PRIVACYPOLICY: "https://pdf.aziral.com/legal/privacy"
+      LEGAL_TERMSANDCONDITIONS: "https://aziral.com/terms"
+      LEGAL_PRIVACYPOLICY: "https://aziral.com/privacy"
       LEGAL_ACCESSIBILITYSTATEMENT: ""
-      LEGAL_COOKIEPOLICY: "https://pdf.aziral.com/legal/cookies"
-      LEGAL_IMPRESSUM: "https://pdf.aziral.com/legal/offer"
+      LEGAL_COOKIEPOLICY: ""
+      LEGAL_IMPRESSUM: ""
     volumes:
       - aziralpy-pdf-data:/usr/share/tessdata
       - aziralpy-pdf-config:/configs
@@ -84,16 +69,6 @@ services:
     volumes:
       - uptime-kuma-data:/app/data
     networks: [edge, internal]
-
-  # ───────────── Legal docs (отдельный nginx-сайдкар) ─────────────
-  legal-nginx:
-    image: nginx:alpine
-    profiles: [pdf]
-    restart: unless-stopped
-    volumes:
-      - /home/olzhas/AziralPDF-app/legal/site:/usr/share/nginx/html:ro
-      - /home/olzhas/AziralPDF-app/legal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    networks: [edge]
 
 volumes:
   aziralpy-pdf-data:
